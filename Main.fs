@@ -1,26 +1,47 @@
 ﻿open FSharpPlus
-open System.Net
+open System
+open FsConfig
+open dotenv.net
 
-let uploadFile(path: string)
+DotEnv.Load()
 
-type Err = string
+type EnvConfig = {
+    GoogleApplicationCredentials: String
+    AssemblyAiEndpoint: String
+    AssemblyAiApiKey: String
+}
 
-let succ: Result<string, Err> = Ok "abc"
+type ApplicationError = 
+    | EnvarNotFound of varName:String
+    | EnvarNotInvalidValue of varName:String * value:String
+    | EnvarGetNotSupported
 
-let pureFunc(s: string) = s 
+let printError(e: ApplicationError): string = 
+    match e with
+        | EnvarNotFound name -> sprintf "Could not find environement variable %s (EnvarNotFound)" name
+        | EnvarNotInvalidValue(name, value) -> sprintf "Invalid value in environment variable %s %s (EnvarNotInvalidValue)" name value
+        | EnvarGetNotSupported -> "EnvarGetNotSupported"
 
-let fail(arg: string): Result<string, Err> = Error "sds"
+let loadConfig(): Result<EnvConfig, ApplicationError> =
+    match EnvConfig.Get<EnvConfig>() with
+        | Ok config -> Ok config
+        | Error error -> 
+            match error with
+            | NotFound envVarName -> 
+                Error (EnvarNotFound envVarName)
+            | BadValue (envVarName, value) ->
+                Error (EnvarNotInvalidValue(envVarName, value))
+            | NotSupported msg -> 
+                Error EnvarGetNotSupported
 
-let maybeWithSideFx = monad' { 
-    let! p = succ
-    let! q = fail p
-    let! r  =  applicative.Return (pureFunc q)
-    return r
+let init(): Result<Unit, ApplicationError> = monad' {
+    let! config = loadConfig()
+    printfn "cfg %A" config
+    return ()
 }
 
 [<EntryPoint>]
 let main args =
-    match maybeWithSideFx with
-        | Ok x -> printfn "OK : %s" x
-        | Error s -> printfn "Error : %s" s
-    0
+    match init() with
+        | Ok _ -> 0
+        | Error e -> printError e |> failwith
