@@ -2,27 +2,19 @@
 open System
 open FsConfig
 open dotenv.net
+open Narration.ApplicationError
+open Narration.FileStore
 
 DotEnv.Load()
 
 type EnvConfig = {
     GoogleApplicationCredentials: String
+    GoogleStorageBucketName: String
     AssemblyAiEndpoint: String
     AssemblyAiApiKey: String
 }
 
-type ApplicationError = 
-    | EnvarNotFound of varName:String
-    | EnvarNotInvalidValue of varName:String * value:String
-    | EnvarGetNotSupported
-
-let printError(e: ApplicationError): string = 
-    match e with
-        | EnvarNotFound name -> sprintf "Could not find environement variable %s (EnvarNotFound)" name
-        | EnvarNotInvalidValue(name, value) -> sprintf "Invalid value in environment variable %s %s (EnvarNotInvalidValue)" name value
-        | EnvarGetNotSupported -> "EnvarGetNotSupported"
-
-let loadConfig(): Result<EnvConfig, ApplicationError> =
+let loadConfig(): Result<EnvConfig, Exception> =
     match EnvConfig.Get<EnvConfig>() with
         | Ok config -> Ok config
         | Error error -> 
@@ -34,14 +26,20 @@ let loadConfig(): Result<EnvConfig, ApplicationError> =
             | NotSupported msg -> 
                 Error EnvarGetNotSupported
 
-let init(): Result<Unit, ApplicationError> = monad' {
-    let! config = loadConfig()
-    printfn "cfg %A" config
-    return ()
+let init(): Async<String> = monad' {
+    let! config = match loadConfig() with
+                    | Ok config -> applicative.Return config
+                    | Error e -> raise e
+    let! fileStore =
+        new GoogleBucketFileStore(
+                config.GoogleStorageBucketName,
+                config.GoogleApplicationCredentials
+            ) :> FileStoreController |> applicative.Return
+    return! fileStore.uploadFile "./scratch.txt" "test.txt" "text"
 }
 
 [<EntryPoint>]
 let main args =
-    match init() with
-        | Ok _ -> 0
-        | Error e -> printError e |> failwith
+    match Async.RunSynchronously (init() |> Async.Catch) with
+        | Choice1Of2 _ -> 0
+        | Choice2Of2 e -> printError e |> failwith

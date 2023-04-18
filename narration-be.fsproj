@@ -6,6 +6,8 @@
     <RootNamespace>narration_be</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ApplicationError.fs" />
+    <Compile Include="FileStore.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
