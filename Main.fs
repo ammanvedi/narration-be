@@ -35,11 +35,13 @@ let init(): Async<String> = monad' {
                 config.GoogleStorageBucketName,
                 config.GoogleApplicationCredentials
             ) :> FileStoreController |> applicative.Return
-    return! fileStore.uploadFile "./scratch.txt" "test.txt" "text"
+    return! fileStore.uploadFile "./scratch-test.txt" "test-2.txt" "text"
 }
 
 [<EntryPoint>]
 let main args =
     match Async.RunSynchronously (init() |> Async.Catch) with
-        | Choice1Of2 _ -> 0
+        | Choice1Of2 url ->
+               printfn "%s" url
+               0
         | Choice2Of2 e -> printError e |> failwith

@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="ApplicationError.fs" />
     <Compile Include="FileStore.fs" />
+    <Compile Include="Transcription.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
